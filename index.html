@@ -3,61 +3,70 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#14213d"><link rel="manifest" href="manifest.webmanifest">
-<title>股票健檢</title>
+<meta name="theme-color" content="#0f1b2d"><link rel="manifest" href="manifest.webmanifest">
+<title>股票分析報告</title>
 <style>
-:root{--navy:#14213d;--blue:#2f6fed;--bg:#f3f5f8;--card:#fff;--line:#e3e8ee;--txt:#1f2933;--mute:#616e7c;--up:#d1495b;--down:#1a9e6b;--amber:#f2a65a}
+:root{--ink:#0f1b2d;--ink2:#1b2f52;--blue:#2457d6;--gold:#c8a24a;--bg:#eef1f6;--card:#fff;--line:#e2e7ef;--txt:#1c2733;--mute:#66758a;--tile:#f5f7fb;--amber:#e8a33d}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--txt);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.6;-webkit-text-size-adjust:100%}
-header{background:var(--navy);color:#fff;padding:18px 16px 20px}
-header h1{margin:0 0 10px;font-size:20px;font-weight:700}
-form{display:flex;gap:8px}
-input{flex:1;min-width:0;font-size:18px;padding:10px 12px;border:0;border-radius:8px}
-button{font-size:16px;font-weight:700;padding:10px 18px;border:0;border-radius:8px;background:var(--blue);color:#fff}
-main{max-width:760px;margin:0 auto;padding:12px 12px 40px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
-h2{font-size:15px;margin:0 0 8px;color:var(--navy)}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Segoe UI",system-ui,sans-serif;line-height:1.65;font-variant-numeric:tabular-nums}
+header{background:linear-gradient(135deg,var(--ink) 0%,var(--ink2) 100%);color:#fff;padding:22px 16px 24px;border-bottom:3px solid var(--gold)}
+.hwrap{max-width:960px;margin:0 auto}
+header h1{margin:0;font-size:22px;font-weight:700;letter-spacing:.06em}
+header .sub{margin:2px 0 14px;font-size:12.5px;color:#aebbd3;letter-spacing:.04em}
+form{display:flex;gap:8px;max-width:520px}
+input{flex:1;min-width:0;font:inherit;font-size:17px;padding:11px 14px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:rgba(255,255,255,.96);color:var(--ink)}
+input:focus{outline:2px solid var(--gold);outline-offset:1px}
+button{font:inherit;font-size:15px;font-weight:700;padding:11px 22px;border:0;border-radius:10px;background:var(--gold);color:#1b1500;cursor:pointer;letter-spacing:.04em}
+button:hover{filter:brightness(1.06)}
+main{max-width:960px;margin:0 auto;padding:16px 14px 48px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0;box-shadow:0 1px 2px rgba(15,27,45,.04),0 6px 18px rgba(15,27,45,.04)}
+h2{font-size:15px;margin:0 0 12px;color:var(--ink);font-weight:700;letter-spacing:.03em;padding-left:10px;border-left:3px solid var(--gold);line-height:1.2}
 .muted{color:var(--mute);font-size:12.5px}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
-.name{font-size:22px;font-weight:700;color:var(--navy)}
-.rating{font-size:30px;font-weight:800;margin:4px 0}
-.r5{color:#b3202f}.r4{color:#d1495b}.r3{color:#616e7c}.r2{color:#1a9e6b}.r1{color:#0b7a4f}
+.name{font-size:26px;font-weight:700;color:var(--ink);letter-spacing:.02em;line-height:1.25}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0 4px}
+.tile{background:var(--tile);border-radius:10px;padding:10px 12px}
+.tile .l{font-size:11.5px;color:var(--mute);letter-spacing:.04em}.tile .v{font-size:20px;font-weight:700;color:var(--ink)}.tile .s{font-size:12px;color:var(--mute)}
+.chip{display:inline-block;font-size:22px;font-weight:800;letter-spacing:.08em;padding:6px 20px;border-radius:999px;color:#fff;margin:2px 0 8px}
+.c5{background:#b3202f}.c4{background:#e0525f}.c3{background:#7b8794}.c2{background:#2aa876}.c1{background:#12795a}
+.up{color:#c62839}.dn{color:#12875f}
 table{width:100%;border-collapse:collapse;font-size:13.5px}
-th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th,td{padding:8px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+tr:last-child>th,tr:last-child>td{border-bottom:0}
 th{color:var(--mute);font-weight:500;white-space:nowrap}
-.bar{height:8px;border-radius:4px;background:#e3e8ee;position:relative;margin:4px 0 8px}
-.bar i{position:absolute;top:-3px;width:3px;height:14px;background:var(--navy);border-radius:2px}
-ul{margin:6px 0 0;padding-left:18px}li{margin:3px 0;font-size:14px}
-.warn{border-left:4px solid var(--amber);background:#fff8ee;font-size:12.5px;color:#5c4a2e}
-.prog{height:4px;background:#e3e8ee;border-radius:2px;overflow:hidden;margin-top:10px}.prog i{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+table.g thead th,table.g tr:first-child th{background:var(--tile);color:var(--ink);font-weight:600}
+.bar{height:6px;border-radius:3px;background:linear-gradient(90deg,#d9efe6,#e9edf3 50%,#f6dcdf);position:relative;margin:8px 0 4px;min-width:120px}
+.bar i{position:absolute;top:-4px;width:4px;height:14px;background:var(--ink);border-radius:2px}
+ul{margin:8px 0 0;padding-left:18px}li{margin:4px 0;font-size:14px}
+.warn{border-left:4px solid var(--amber);background:#fff9ef;font-size:12.5px;color:#5c4a2e}
+.prog{height:3px;background:rgba(255,255,255,.18);border-radius:2px;overflow:hidden;margin-top:12px;max-width:520px}.prog i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
 svg{width:100%;height:auto;display:block}
-.pill{display:inline-block;padding:1px 8px;border-radius:10px;background:#eaf0fe;color:var(--blue);font-size:12px;margin-right:4px}
-
+.pill{display:inline-block;padding:1px 10px;border-radius:999px;background:#e8eefc;color:var(--blue);font-size:12px;margin-right:6px}
 .rpt-title{display:none}
-.kv th{width:18%}.kv2 th{width:26%;white-space:nowrap}
-button{cursor:pointer}
+.kv th{width:18%}.kv2 th{width:24%;white-space:nowrap}
+.sect{display:grid;gap:14px}
+@media (max-width:640px){.tiles{grid-template-columns:repeat(2,1fr)}.name{font-size:22px}.card{padding:14px 14px}th{white-space:normal}}
 @media print{
   @page{size:A4;margin:14mm}
   body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px}
   header,.noprint,#disc0{display:none!important}
-  .rpt-title{display:block;border-bottom:3px solid var(--blue);padding-bottom:6px;margin-bottom:6px}
+  .rpt-title{display:block;border-bottom:3px solid var(--gold);padding-bottom:6px;margin-bottom:6px}
+  .rpt-title .name{font-size:22px}
   main{max-width:none;padding:0}
-  .card{break-inside:avoid;border-color:#d9dee4;margin:8px 0}
+  .card{break-inside:avoid;box-shadow:none;margin:8px 0}
   .card.brk{break-inside:auto}
   tr,li{break-inside:avoid}
-  .rating{font-size:26px}
+  .tiles{grid-template-columns:repeat(4,1fr)}
 }
-@media (min-width:600px){main{padding-top:20px}}
 </style>
 </head>
 <body>
-<header>
-<h1>股票健檢</h1>
-<form id="f"><input id="code" inputmode="numeric" placeholder="輸入上市股票代號,例如 2330" autocomplete="off"><button>健檢</button></form>
-<div class="prog" id="prog" hidden><i></i></div>
-</header>
+<header><div class="hwrap">
+<h1>股票分析報告</h1><div class="sub">上市個股技術面・估值・基本面量化評等</div>
+<form id="f"><input id="code" inputmode="numeric" placeholder="股票代號,例如 2330" autocomplete="off"><button>開始分析</button></form>
+<div class="prog" id="prog" hidden><i></i></div></div></header>
 <main id="out">
-<div class="card muted">輸入上市股票代號後按「健檢」,約需 10–20 秒。資料來自臺灣證券交易所公開資料。目前支援上市股票,上櫃股票之後加入。</div>
+<div class="card muted">輸入上市股票代號後按「開始分析」,約需 10–20 秒。資料來自臺灣證券交易所公開資料。目前支援上市股票,上櫃股票之後加入。</div>
 <div class="card warn" id="disc0"></div>
 </main>
 <script>
@@ -187,6 +196,11 @@ function chart(rows,A){
   s+='<text x="'+P+'" y="12" font-size="11" fill="#14213d">收盤價</text><text x="'+(P+48)+'" y="12" font-size="11" fill="#2f6fed">60日線</text><text x="'+(P+100)+'" y="12" font-size="11" fill="#9aa5b1">20日線</text><text x="'+(P+152)+'" y="12" font-size="11" fill="#c98a3a">橘色帶=進場區間</text></svg>';
   return s;
 }
+function tiles(S,A){
+  const r=S.rows,pv=r[r.length-2]?r[r.length-2].c:A.px,chg=A.px/pv-1,pos=(A.px-A.lo52)/(A.hi52-A.lo52);
+  const T=[["收盤價",fmt(A.px),'<span class="'+(chg>=0?"up":"dn")+'">'+pct(chg,2)+'</span> 較前一日'],["本益比",A.pe?fmt(A.pe.cur,1)+" 倍":"—",A.pe?"近12月第 "+Math.round(A.pe.rank*100)+" 百分位":"資料不足"],["52 週區間位置",Math.round(pos*100)+"%",fmt(A.lo52,0)+" – "+fmt(A.hi52,0)],["RSI(14)",fmt(A.rsi,0),A.rsi>=70?"偏熱":A.rsi<=30?"超賣":"中性區間"]];
+  return '<div class="tiles">'+T.map(t=>'<div class="tile"><div class="l">'+t[0]+'</div><div class="v">'+t[1]+'</div><div class="s">'+t[2]+'</div></div>').join("")+'</div>';
+}
 function views(A){
   const hot=A.rsi>=70||(isFinite(A.ma60)&&A.px/A.ma60>1.15);
   let st;
@@ -212,11 +226,11 @@ function risks(A){
 function render(code,S,A){
   const dt=A.date.toLocaleDateString("zh-TW"),today=new Date().toLocaleDateString("zh-TW");
   const ind=A.fd&&A.fd.industry?A.fd.industry:"—";const nm=S.name||(A.fd&&A.fd.name)||code;const V=views(A);
-  document.title="股票健檢_"+code+"_"+nm+"_"+new Date().toISOString().slice(0,10).replace(/-/g,"");
+  document.title="股票分析報告_"+code+"_"+nm+"_"+new Date().toISOString().slice(0,10).replace(/-/g,"");
   const bar=v=>'<div class="bar"><i style="left:calc('+((v+2)/4*100).toFixed(0)+'% - 1px)"></i></div>';
-  let h='<div class="rpt-title"><div class="name">'+nm+' '+code+'</div><div class="muted">個股健檢報告</div></div>';
+  let h='<div class="rpt-title"><div class="name">'+nm+' '+code+'</div><div class="muted">股票分析報告</div></div>';
   h+='<div class="card"><table class="kv"><tr><th>公司名稱</th><td>'+(A.fd&&A.fd.name?A.fd.name:nm)+'</td><th>股票代號</th><td>'+code+'</td></tr><tr><th>產業分類</th><td>'+ind+'</td><th>市場別</th><td>上市(臺灣證券交易所)</td></tr><tr><th>報告產出日期</th><td>'+today+'</td><th>價格資料基準日</th><td>'+dt+'</td></tr></table></div>';
-  h+='<div class="card hero"><h2>綜合觀點(量化規則)</h2><div class="rating r'+A.rating+'">'+RN[A.rating]+'</div><div class="muted">'+RD[A.rating]+'|綜合分數 '+A.score.toFixed(2)+'(−2 至 +2)</div>';
+  h+='<div class="card hero"><h2>綜合觀點(量化規則)</h2>'+tiles(S,A)+'<div class="chip c'+A.rating+'">'+RN[A.rating]+'</div><div class="muted">'+RD[A.rating]+'|綜合分數 '+A.score.toFixed(2)+'(−2 至 +2)</div>';
   h+='<table class="kv2"><tr><th>長期(1 年以上)</th><td><b>'+V.lt[0]+'</b>。'+V.lt[1]+'</td></tr><tr><th>短線(1–3 個月)</th><td><b>'+V.st[0]+'</b>。'+V.st[1]+'</td></tr><tr><th>賣出</th><td><b>'+V.sell[0]+'</b>。'+V.sell[1]+'</td></tr>'+
    '<tr><th>建議進場區間</th><td>'+(A.zones.length?A.zones.map((z,i)=>'<b>'+fmt(z.lo,0)+'–'+fmt(z.hi,0)+'</b>(第'+(i+1)+'批)').join('|'):'目前下方沒有明確支撐')+'</td></tr></table>';
   h+='<table><tr><th>技術面 25%</th><td>'+A.tech.toFixed(1)+bar(A.tech)+'</td></tr><tr><th>估值 35%</th><td>'+A.val.toFixed(1)+bar(A.val)+'</td></tr><tr><th>基本面 40%</th><td>'+A.fund.toFixed(1)+bar(A.fund)+'</td></tr></table>';
