@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#14213d"><link rel="manifest" href="manifest.webmanifest">
+<title>股票健檢</title>
+<style>
+:root{--navy:#14213d;--blue:#2f6fed;--bg:#f3f5f8;--card:#fff;--line:#e3e8ee;--txt:#1f2933;--mute:#616e7c;--up:#d1495b;--down:#1a9e6b;--amber:#f2a65a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.6;-webkit-text-size-adjust:100%}
+header{background:var(--navy);color:#fff;padding:18px 16px 20px}
+header h1{margin:0 0 10px;font-size:20px;font-weight:700}
+form{display:flex;gap:8px}
+input{flex:1;min-width:0;font-size:18px;padding:10px 12px;border:0;border-radius:8px}
+button{font-size:16px;font-weight:700;padding:10px 18px;border:0;border-radius:8px;background:var(--blue);color:#fff}
+main{max-width:760px;margin:0 auto;padding:12px 12px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+h2{font-size:15px;margin:0 0 8px;color:var(--navy)}
+.muted{color:var(--mute);font-size:12.5px}
+.hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap}
+.name{font-size:22px;font-weight:700;color:var(--navy)}
+.rating{font-size:30px;font-weight:800;margin:4px 0}
+.r5{color:#b3202f}.r4{color:#d1495b}.r3{color:#616e7c}.r2{color:#1a9e6b}.r1{color:#0b7a4f}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:500;white-space:nowrap}
+.bar{height:8px;border-radius:4px;background:#e3e8ee;position:relative;margin:4px 0 8px}
+.bar i{position:absolute;top:-3px;width:3px;height:14px;background:var(--navy);border-radius:2px}
+ul{margin:6px 0 0;padding-left:18px}li{margin:3px 0;font-size:14px}
+.warn{border-left:4px solid var(--amber);background:#fff8ee;font-size:12.5px;color:#5c4a2e}
+.prog{height:4px;background:#e3e8ee;border-radius:2px;overflow:hidden;margin-top:10px}.prog i{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+svg{width:100%;height:auto;display:block}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;background:#eaf0fe;color:var(--blue);font-size:12px;margin-right:4px}
+
+.rpt-title{display:none}
+.kv th{width:18%}.kv2 th{width:26%;white-space:nowrap}
+button{cursor:pointer}
+@media print{
+  @page{size:A4;margin:14mm}
+  body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:12px}
+  header,.noprint,#disc0{display:none!important}
+  .rpt-title{display:block;border-bottom:3px solid var(--blue);padding-bottom:6px;margin-bottom:6px}
+  main{max-width:none;padding:0}
+  .card{break-inside:avoid;border-color:#d9dee4;margin:8px 0}
+  .card.brk{break-inside:auto}
+  tr,li{break-inside:avoid}
+  .rating{font-size:26px}
+}
+@media (min-width:600px){main{padding-top:20px}}
+</style>
+</head>
+<body>
+<header>
+<h1>股票健檢</h1>
+<form id="f"><input id="code" inputmode="numeric" placeholder="輸入上市股票代號,例如 2330" autocomplete="off"><button>健檢</button></form>
+<div class="prog" id="prog" hidden><i></i></div>
+</header>
+<main id="out">
+<div class="card muted">輸入上市股票代號後按「健檢」,約需 10–20 秒。資料來自臺灣證券交易所公開資料。目前支援上市股票,上櫃股票之後加入。</div>
+<div class="card warn" id="disc0"></div>
+</main>
+<script>
+const DISCLAIMER="免責聲明:本工具為依公開資料以固定規則自動計算的研究輔助,評等、進場區間與估值皆為量化推算,不是投資建議,也不保證獲利;計算未涵蓋公司消息、產業與總體風險,且資料可能有延遲或錯誤。投資有風險,請自行判斷並承擔結果。";
+document.getElementById("disc0").textContent=DISCLAIMER;
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const num=s=>{if(s==null)return NaN;const t=String(s).replace(/[,\s+]/g,"");return t===""||t==="--"||t==="-"?NaN:parseFloat(t)};
+const fmt=(x,d=2)=>isFinite(x)?x.toLocaleString("zh-TW",{minimumFractionDigits:d,maximumFractionDigits:d}):"—";
+const pc=(x,d=1)=>isFinite(x)?(x*100).toFixed(d)+'%':'—';
+const pct=(x,d=1)=>isFinite(x)?(x>=0?"+":"")+(x*100).toFixed(d)+"%":"—";
+const roc=s=>{const m=String(s).match(/(\d+)\D+(\d+)\D+(\d+)/);return m?new Date(+m[1]+1911,+m[2]-1,+m[3]):null};
+const ymd=d=>d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+"01";
+function setProg(p){const b=$("#prog");b.hidden=false;b.firstElementChild.style.width=(p*100)+"%"}
+async function getJSON(url,tries=3){
+  for(let i=0;i<tries;i++){
+    try{const r=await fetch(url);const t=await r.text();return JSON.parse(t)}catch(e){await sleep(800*(i+1))}
+  }
+  throw new Error("連線失敗:"+url.split("?")[0]);
+}
+async function loadSeries(code,months=14){
+  const key="shc2:"+code+":"+new Date().toISOString().slice(0,10);
+  try{const c=localStorage.getItem(key);if(c)return JSON.parse(c)}catch(e){}
+  const now=new Date(),rows=[],pe=[];let name="",total=months*2,done=0;
+  for(let i=months-1;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1),ds=ymd(d);
+    const a=await getJSON("https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date="+ds+"&stockNo="+code);
+    if(a.stat==="OK"){
+      const m=(a.title||"").match(/\d+\s+(\S+)\s+各日/);if(m)name=m[1];
+      for(const r of a.data){const dt=roc(r[0]);const c=num(r[6]);if(!dt||!isFinite(c))continue;
+        rows.push({t:dt.getTime(),v:num(r[1]),o:num(r[3]),h:num(r[4]),l:num(r[5]),c});}
+    }
+    setProg(++done/total);await sleep(350);
+    const b=await getJSON("https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?response=json&stockNo="+code+"&date="+ds);
+    if(b.stat==="OK"){for(const r of b.data){const dt=roc(r[0]);if(!dt)continue;pe.push({t:dt.getTime(),pe:num(r[3]),pb:num(r[4]),dy:num(r[1])})}}
+    setProg(++done/total);await sleep(350);
+  }
+  const res={name,rows,pe};
+  if(rows.length){try{localStorage.setItem(key,JSON.stringify(res))}catch(e){}}
+  return res;
+}
+async function loadFund(code){
+  try{const r=await fetch("data/fundamentals.json",{cache:"no-cache"});if(!r.ok)return null;const j=await r.json();return {meta:j.meta,d:j.stocks[code]||null}}catch(e){return null}
+}
+/* ---------- indicators ---------- */
+const sma=(a,n)=>a.length>=n?a.slice(-n).reduce((x,y)=>x+y,0)/n:NaN;
+function rsi(c,n=14){if(c.length<n+1)return NaN;let g=0,l=0;for(let i=1;i<=n;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=n;l/=n;
+  for(let i=n+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(n-1)+(d>0?d:0))/n;l=(l*(n-1)+(d<0?-d:0))/n}return l===0?100:100-100/(1+g/l)}
+function ema(a,n){const k=2/(n+1);const o=[a[0]];for(let i=1;i<a.length;i++)o.push(a[i]*k+o[i-1]*(1-k));return o}
+function macd(c){const a=ema(c,12),b=ema(c,26),m=a.map((x,i)=>x-b[i]),s=ema(m,9);const i=c.length-1;return{dif:m[i],sig:s[i],hist:m[i]-s[i]}}
+function atr(r,n=14){if(r.length<n+1)return NaN;let s=0;for(let i=r.length-n;i<r.length;i++){const p=r[i-1].c;s+=Math.max(r[i].h-r[i].l,Math.abs(r[i].h-p),Math.abs(r[i].l-p))}return s/n}
+function pivots(r,w=5){const lo=[],hi=[];for(let i=w;i<r.length-w;i++){let isL=true,isH=true;for(let j=i-w;j<=i+w;j++){if(r[j].l<r[i].l)isL=false;if(r[j].h>r[i].h)isH=false}if(isL)lo.push(r[i].l);if(isH)hi.push(r[i].h)}return{lo,hi}}
+function quant(a,q){const s=[...a].sort((x,y)=>x-y);const p=(s.length-1)*q,i=Math.floor(p);return s[i]+(s[Math.min(i+1,s.length-1)]-s[i])*(p-i)}
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+function growthScore(g){if(!isFinite(g))return NaN;return g>.5?1:g>.2?.6:g>.05?.3:g>-.05?0:g>-.2?-.5:-1}
+function analyze(S,F){
+  const rows=S.rows.sort((a,b)=>a.t-b.t),c=rows.map(r=>r.c),last=rows[rows.length-1],px=last.c;
+  const A={px,date:new Date(last.t)};
+  A.ma20=sma(c,20);A.ma60=sma(c,60);A.ma120=sma(c,120);A.rsi=rsi(c);A.macd=macd(c);A.atr=atr(rows);
+  const yr=rows.filter(r=>r.t>last.t-365*864e5);A.hi52=Math.max(...yr.map(r=>r.h));A.lo52=Math.min(...yr.map(r=>r.l));
+  A.v5=sma(rows.map(r=>r.v),5);A.v20=sma(rows.map(r=>r.v),20);
+  A.ret={m1:px/c[Math.max(0,c.length-21)]-1,m3:px/c[Math.max(0,c.length-61)]-1,y1:px/yr[0].c-1};
+  /* technical score */
+  const T=[];let ts=0;const add=(ok,txt,w=.4)=>{ts+=ok?w:-w;T.push((ok?"+ ":"− ")+txt)};
+  if(isFinite(A.ma20))add(px>A.ma20,"收盤價"+(px>A.ma20?"在":"低於")+" 20 日均線");
+  if(isFinite(A.ma60))add(px>A.ma60,"收盤價"+(px>A.ma60?"在":"低於")+" 60 日均線");
+  if(isFinite(A.ma120))add(px>A.ma120,"收盤價"+(px>A.ma120?"在":"低於")+" 120 日均線");
+  if(isFinite(A.ma20)&&isFinite(A.ma60))add(A.ma20>A.ma60,"20 日均線"+(A.ma20>A.ma60?"高於":"低於")+" 60 日均線");
+  if(isFinite(A.ma60)&&isFinite(A.ma120))add(A.ma60>A.ma120,"60 日均線"+(A.ma60>A.ma120?"高於":"低於")+" 120 日均線");
+  if(A.rsi>75){ts-=.5;T.push("− RSI "+A.rsi.toFixed(0)+" 偏熱")}else if(A.rsi<25){ts+=.3;T.push("+ RSI "+A.rsi.toFixed(0)+" 超賣")}
+  ts+=A.macd.hist>0?.2:-.2;T.push((A.macd.hist>0?"+ ":"− ")+"MACD 柱狀體"+(A.macd.hist>0?"為正":"為負"));
+  if(isFinite(A.ma60)&&px/A.ma60-1>.15){ts-=.5;T.push("− 股價高出 60 日均線逾 15%,短線乖離偏大")}
+  A.tech=clamp(ts,-2,2);A.techNotes=T;
+  /* valuation */
+  const pes=S.pe.filter(x=>isFinite(x.pe)&&x.pe>0).sort((a,b)=>a.t-b.t);const V=[];let vs=0;
+  if(pes.length>=60&&S.pe.length&&isFinite(S.pe[S.pe.length-1].pe)){
+    const y=pes.filter(x=>x.t>last.t-365*864e5).map(x=>x.pe),cur=pes[pes.length-1].pe;
+    A.pe={cur,min:Math.min(...y),p25:quant(y,.25),med:quant(y,.5),p75:quant(y,.75),max:Math.max(...y),rank:y.filter(v=>v<=cur).length/y.length};
+    A.eps=px/cur;A.pePrices={p25:A.eps*A.pe.p25,med:A.eps*A.pe.med,p75:A.eps*A.pe.p75};
+    vs=clamp((.5-A.pe.rank)*4,-2,2);
+    V.push("本益比 "+fmt(cur,1)+" 倍,位於近 12 個月的第 "+Math.round(A.pe.rank*100)+" 百分位(區間 "+fmt(A.pe.min,1)+"–"+fmt(A.pe.max,1)+",中位 "+fmt(A.pe.med,1)+")");
+    const ago=pes.find(x=>x.t>=last.t-365*864e5);
+    if(ago){const row=rows.find(r=>r.t>=ago.t);if(row){A.epsAgo=row.c/ago.pe;A.epsG=A.eps/A.epsAgo-1;V.push("由本益比反推近四季每股盈餘約 "+fmt(A.eps)+" 元,一年前約 "+fmt(A.epsAgo)+" 元("+pct(A.epsG)+")")}}
+    const lastRow=S.pe[S.pe.length-1];A.pb=lastRow.pb;A.dy=lastRow.dy;
+  }else{
+    const lr=S.pe[S.pe.length-1];
+    if(lr&&!isFinite(lr.pe)){vs=-1;V.push("近四季虧損或本益比無法計算,估值給予保守分數")}else V.push("本益比資料不足,估值不評分");
+    A.pb=lr?lr.pb:NaN;A.dy=lr?lr.dy:NaN;
+  }
+  A.val=vs;A.valNotes=V;
+  /* fundamentals */
+  const Fn=[];const comps=[];const d=F&&F.d;
+  if(d){
+    if(isFinite(d.rev_yoy)){comps.push(growthScore(d.rev_yoy));Fn.push("單月營收年增 "+pct(d.rev_yoy/1)+"("+d.month+")")}
+    if(isFinite(d.ytd_yoy)){comps.push(growthScore(d.ytd_yoy)*.6);Fn.push("累計營收年增 "+pct(d.ytd_yoy))}
+  }
+  if(isFinite(A.epsG)){comps.push(growthScore(A.epsG)*1.2);Fn.push("近四季 EPS 年增(反推)"+pct(A.epsG))}
+  A.fund=comps.length?clamp(comps.reduce((a,b)=>a+b,0)*.5,-2,2):0;
+  if(!comps.length)Fn.push("基本面資料不足,不評分");
+  A.fundNotes=Fn;A.fd=d;A.fmeta=F&&F.meta;
+  A.score=.25*A.tech+.35*A.val+.4*A.fund;
+  A.rating=A.score>=1.3?5:A.score>=.5?4:A.score>-.35?3:A.score>-1?2:1;
+  /* entry zones */
+  const pv=pivots(rows.slice(-260));const cand=[];
+  [A.ma20,A.ma60,A.ma120].forEach((m,i)=>{if(isFinite(m)&&m<px*.995)cand.push({p:m,why:["20 日均線","60 日均線","120 日均線"][i]})});
+  pv.lo.forEach(l=>{if(l<px*.995&&l>px*.7)cand.push({p:l,why:"前波低點"})});
+  cand.sort((a,b)=>b.p-a.p);const cl=[];
+  for(const x of cand){const g=cl[cl.length-1];if(g&&(g.p-x.p)/g.p<.012){g.ps.push(x.p);g.ws.add(x.why);g.p=g.ps.reduce((a,b)=>a+b,0)/g.ps.length}else cl.push({p:x.p,ps:[x.p],ws:new Set([x.why])})}
+  const cl2=cl.filter(x=>(px-x.p)/px>.015).slice(0,3);const w=[[1],[.5,.5],[.3,.3,.4]][Math.max(0,cl2.length-1)]||[];
+  A.zones=cl2.map((x,i)=>({lo:x.p-.4*A.atr,hi:x.p+.4*A.atr,mid:x.p,why:[...x.ws].join("、"),w:w[i]}));
+  A.res=pv.hi.filter(h=>h>px*1.005).sort((a,b)=>a-b)[0]||A.hi52;
+  return A;
+}
+/* ---------- rendering ---------- */
+const RN={5:"強力買進",4:"買進",3:"持有",2:"減碼",1:"賣出"};
+const RD={5:"多項指標同時偏多",4:"整體偏多",3:"多空訊號大致平衡",2:"整體偏弱",1:"多項指標同時偏空"};
+function chart(rows,A){
+  const r=rows.slice(-180),W=720,H=260,P=34;const c=r.map(x=>x.c);
+  const ma=n=>r.map((_,i)=>{const k=rows.length-r.length+i;if(k<n-1)return NaN;let s=0;for(let j=k-n+1;j<=k;j++)s+=rows[j].c;return s/n});
+  const m20=ma(20),m60=ma(60);const all=[...c,...A.zones.map(z=>z.lo)];const mn=Math.min(...all)*.98,mx=Math.max(...c)*1.02;
+  const x=i=>P+i*(W-P-6)/(r.length-1),y=v=>H-18-(v-mn)/(mx-mn)*(H-30);
+  const path=a=>{let d="",on=false;a.forEach((v,i)=>{if(!isFinite(v)){on=false;return}d+=(on?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1);on=true});return d};
+  let s='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="近 180 個交易日價格走勢">';
+  A.zones.forEach(z=>{s+='<rect x="'+P+'" y="'+y(z.hi).toFixed(1)+'" width="'+(W-P-6)+'" height="'+Math.max(2,y(z.lo)-y(z.hi)).toFixed(1)+'" fill="#f2a65a" opacity=".28"/>'});
+  for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4;s+='<line x1="'+P+'" x2="'+(W-6)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="#e3e8ee"/><text x="2" y="'+(y(v)+4).toFixed(1)+'" font-size="11" fill="#616e7c">'+Math.round(v)+'</text>'}
+  s+='<path d="'+path(m60)+'" fill="none" stroke="#2f6fed" stroke-width="1.2"/><path d="'+path(m20)+'" fill="none" stroke="#9aa5b1" stroke-width="1.2" stroke-dasharray="4 3"/><path d="'+path(c)+'" fill="none" stroke="#14213d" stroke-width="1.8"/>';
+  s+='<text x="'+P+'" y="12" font-size="11" fill="#14213d">收盤價</text><text x="'+(P+48)+'" y="12" font-size="11" fill="#2f6fed">60日線</text><text x="'+(P+100)+'" y="12" font-size="11" fill="#9aa5b1">20日線</text><text x="'+(P+152)+'" y="12" font-size="11" fill="#c98a3a">橘色帶=進場區間</text></svg>';
+  return s;
+}
+function views(A){
+  const hot=A.rsi>=70||(isFinite(A.ma60)&&A.px/A.ma60>1.15);
+  let st;
+  if(hot)st=["觀望","RSI 或乖離偏高,短線過熱,等回檔再評估"];
+  else if(A.px>A.ma20&&A.px>A.ma60&&A.macd.hist>0)st=["偏多","價格站上 20、60 日均線且 MACD 為正,可順勢但不宜追高"];
+  else if(A.px<A.ma20&&A.px<A.ma60)st=["偏弱,觀望","價格在 20、60 日均線之下,等止跌訊號"];
+  else st=["觀望","多空訊號交錯,等方向明確"];
+  const lt={5:["長期持有/分批布局","量化訊號多項偏多"],4:["長期持有,回檔分批布局","整體偏多,但不建議重壓追價"],3:["持有,不追價","訊號大致平衡"],2:["減碼檢視","整體偏弱,建議重新檢視基本面與持股比重"],1:["不建議持有,先確認基本面","多項訊號偏空"]}[A.rating];
+  const low=A.zones.length?A.zones[A.zones.length-1].lo:A.ma120;
+  const sell=A.rating<=2?["訊號偏弱,建議重新檢視","評等為"+RN[A.rating]+",請確認基本面是否惡化,再決定是否減碼"]:["目前量化訊號無賣出理由","若收盤跌破 "+fmt(low)+(isFinite(A.ma120)?" 或 120 日均線 "+fmt(A.ma120):"")+",請重新檢視"];
+  return{st,lt,sell};
+}
+function risks(A){
+  const L=[];
+  if(A.pe){const drop=A.pe.p25/A.pe.cur-1;if(drop<0)L.push("<b>估值收縮</b>:本益比由 "+fmt(A.pe.cur,1)+" 倍降到近 12 月 25% 分位 "+fmt(A.pe.p25,1)+" 倍,即使盈餘不變,股價約下跌 "+fmt(-drop*100,0)+"%。");else L.push("<b>估值位置</b>:目前本益比低於近 12 月 25% 分位,但低本益比可能反映市場預期盈餘轉差。");}
+  if(isFinite(A.ma60)&&A.px/A.ma60>1.1)L.push("<b>乖離</b>:股價高出 60 日均線 "+fmt((A.px/A.ma60-1)*100,0)+"%,短線容易震盪拉回。");
+  if(A.fd&&isFinite(A.fd.rev_yoy)&&A.fd.rev_yoy<0)L.push("<b>營收轉弱</b>:最新單月營收年增為負("+pct(A.fd.rev_yoy)+")。");
+  L.push("<b>價格重新檢視線</b>:收盤跌破 "+fmt(A.zones.length?A.zones[A.zones.length-1].lo:A.ma120)+(isFinite(A.ma120)?" 或 120 日均線 "+fmt(A.ma120):"")+"。");
+  L.push("<b>基本面訊號</b>:月營收年增率連續轉弱、毛利率明顯下滑、本益比與盈餘同步下降。");
+  L.push("<b>本程式未涵蓋</b>:公司個別消息、產業循環、匯率、關稅與地緣政治、法說會指引與券商目標價;這些需要個股深入報告。");
+  return L;
+}
+function render(code,S,A){
+  const dt=A.date.toLocaleDateString("zh-TW"),today=new Date().toLocaleDateString("zh-TW");
+  const ind=A.fd&&A.fd.industry?A.fd.industry:"—";const nm=S.name||(A.fd&&A.fd.name)||code;const V=views(A);
+  document.title="股票健檢_"+code+"_"+nm+"_"+new Date().toISOString().slice(0,10).replace(/-/g,"");
+  const bar=v=>'<div class="bar"><i style="left:calc('+((v+2)/4*100).toFixed(0)+'% - 1px)"></i></div>';
+  let h='<div class="rpt-title"><div class="name">'+nm+' '+code+'</div><div class="muted">個股健檢報告</div></div>';
+  h+='<div class="card"><table class="kv"><tr><th>公司名稱</th><td>'+(A.fd&&A.fd.name?A.fd.name:nm)+'</td><th>股票代號</th><td>'+code+'</td></tr><tr><th>產業分類</th><td>'+ind+'</td><th>市場別</th><td>上市(臺灣證券交易所)</td></tr><tr><th>報告產出日期</th><td>'+today+'</td><th>價格資料基準日</th><td>'+dt+'</td></tr></table></div>';
+  h+='<div class="card hero"><h2>綜合觀點(量化規則)</h2><div class="rating r'+A.rating+'">'+RN[A.rating]+'</div><div class="muted">'+RD[A.rating]+'|綜合分數 '+A.score.toFixed(2)+'(−2 至 +2)</div>';
+  h+='<table class="kv2"><tr><th>長期(1 年以上)</th><td><b>'+V.lt[0]+'</b>。'+V.lt[1]+'</td></tr><tr><th>短線(1–3 個月)</th><td><b>'+V.st[0]+'</b>。'+V.st[1]+'</td></tr><tr><th>賣出</th><td><b>'+V.sell[0]+'</b>。'+V.sell[1]+'</td></tr>'+
+   '<tr><th>建議進場區間</th><td>'+(A.zones.length?A.zones.map((z,i)=>'<b>'+fmt(z.lo,0)+'–'+fmt(z.hi,0)+'</b>(第'+(i+1)+'批)').join('|'):'目前下方沒有明確支撐')+'</td></tr></table>';
+  h+='<table><tr><th>技術面 25%</th><td>'+A.tech.toFixed(1)+bar(A.tech)+'</td></tr><tr><th>估值 35%</th><td>'+A.val.toFixed(1)+bar(A.val)+'</td></tr><tr><th>基本面 40%</th><td>'+A.fund.toFixed(1)+bar(A.fund)+'</td></tr></table>';
+  h+='<div class="muted">評等門檻:≥1.3 強力買進、≥0.5 買進、−0.35 至 0.5 持有、−1 至 −0.35 減碼、其餘賣出。</div></div>';
+  h+='<div class="card warn">'+DISCLAIMER+'</div>';
+  const sm=[];
+  sm.push("<b>價格</b>:收盤 "+fmt(A.px)+",近 1 個月 "+pct(A.ret.m1)+"、3 個月 "+pct(A.ret.m3)+"、1 年 "+pct(A.ret.y1)+";距 52 週高點 "+pct(A.px/A.hi52-1)+"。");
+  if(A.pe)sm.push("<b>估值</b>:本益比 "+fmt(A.pe.cur,1)+" 倍,位於近 12 個月第 "+Math.round(A.pe.rank*100)+" 百分位(中位 "+fmt(A.pe.med,1)+" 倍)。");
+  sm.push("<b>技術面</b>:"+(A.px>A.ma20&&A.ma20>A.ma60&&A.ma60>A.ma120?"多頭排列":A.px<A.ma20&&A.ma20<A.ma60&&A.ma60<A.ma120?"空頭排列":"均線糾結")+",RSI "+fmt(A.rsi,0)+"。");
+  if(A.fd&&isFinite(A.fd.rev_yoy))sm.push("<b>營收</b>:"+A.fd.month+" 月營收年增 "+pct(A.fd.rev_yoy)+",累計年增 "+pct(A.fd.ytd_yoy)+"。");
+  if(isFinite(A.epsG))sm.push("<b>獲利</b>:由本益比反推,近四季每股盈餘約 "+fmt(A.eps)+" 元,較一年前 "+pct(A.epsG)+"。");
+  h+='<div class="card"><h2>摘要</h2><ul>'+sm.map(t=>'<li>'+t+'</li>').join('')+'</ul></div>';
+  h+='<div class="card brk"><h2>1. 技術面分析</h2>'+chart(S.rows,A)+'<div class="muted">圖:近 180 個交易日收盤價、均線與建議進場區間(橘色帶)。</div><table><tr><th>均線</th><td>20日 '+fmt(A.ma20)+'|60日 '+fmt(A.ma60)+'|120日 '+fmt(A.ma120)+'</td></tr><tr><th>RSI(14)</th><td>'+fmt(A.rsi,1)+'</td></tr><tr><th>MACD</th><td>DIF '+fmt(A.macd.dif)+'|訊號 '+fmt(A.macd.sig)+'|柱 '+fmt(A.macd.hist)+'</td></tr><tr><th>ATR(14)</th><td>'+fmt(A.atr)+'('+pct(A.atr/A.px)+')</td></tr><tr><th>52 週區間</th><td>'+fmt(A.lo52)+' – '+fmt(A.hi52)+'</td></tr><tr><th>成交量</th><td>5日均量為20日均量的 '+fmt(A.v5/A.v20,2)+' 倍</td></tr><tr><th>近端壓力</th><td>'+fmt(A.res)+'</td></tr></table><ul>'+A.techNotes.map(t=>'<li>'+t+'</li>').join('')+'</ul>';
+  h+='<h2 style="margin-top:12px">進場區間(分批)</h2>';
+  if(A.zones.length){h+='<table><tr><th>批次</th><th>價格區間</th><th>比重</th><th>依據</th><th>對應本益比</th></tr>'+A.zones.map((z,i)=>'<tr><td>第'+(i+1)+'批</td><td>'+fmt(z.lo)+' – '+fmt(z.hi)+'</td><td>'+Math.round(z.w*100)+'%</td><td>'+z.why+'</td><td>'+(A.eps?fmt(z.lo/A.eps,1)+'–'+fmt(z.hi/A.eps,1)+' 倍':'—')+'</td></tr>').join('')+'</table><ul><li>「比重」指你打算投入該股的那筆資金之分配,並非整體資產比例;未到區間就不動,不需要三批都買滿。</li><li>區間由均線與前波低點推算,寬度為 ±0.4 個 ATR;跌破最後一個區間請先重新檢視基本面,不要機械式攤平。</li><li>若直接突破近端壓力 '+fmt(A.res)+',不建議追價,可等回測。</li></ul>';
+    if(!(A.px>A.ma60))h+='<div class="muted">注意:股價在 60 日均線下方,趨勢偏弱,建議等止跌訊號。</div>'}
+  else h+='<div class="muted">股價下方近期沒有明確支撐,無法推算進場區間。</div>';
+  h+='</div>';
+  h+='<div class="card"><h2>2. 基本資料</h2><table><tr><th>公司</th><td>'+(A.fd&&A.fd.name?A.fd.name:nm)+'('+code+')</td></tr><tr><th>產業別</th><td>'+ind+'</td></tr><tr><th>股價淨值比</th><td>'+fmt(A.pb)+'</td></tr><tr><th>殖利率</th><td>'+fmt(A.dy)+'%</td></tr></table></div>';
+  h+='<div class="card brk"><h2>3. 財報解析</h2>';
+  if(A.fd){const d=A.fd;h+='<table><tr><th>最新月營收('+d.month+')</th><td>'+fmt(d.rev/1e5,1)+' 億元|月增 '+pct(d.rev_mom)+'|年增 '+pct(d.rev_yoy)+'</td></tr><tr><th>累計營收年增</th><td>'+pct(d.ytd_yoy)+'</td></tr>'+(d.q?'<tr><th>最新財報(民國 '+d.q.year+' 年第 '+d.q.season+' 季,累計)</th><td>EPS '+fmt(d.q.eps)+' 元'+(isFinite(d.q.gm)?'<br>毛利率 '+pc(d.q.gm)+'|營業利益率 '+pc(d.q.om)+'|稅後淨利率 '+pc(d.q.nm):'')+'</td></tr>':'')+'</table>';
+    if(d.hist&&Object.keys(d.hist).length>1)h+=revChart(d.hist)}
+  h+='<ul>'+A.fundNotes.map(t=>'<li>'+t+'</li>').join('')+'</ul>';
+  if(!A.fd)h+='<div class="muted">基本面資料檔尚未載入或沒有這檔股票;評分只用技術面與估值。</div>';
+  else if(A.fmeta)h+='<div class="muted">基本面資料更新於 '+A.fmeta.updated+';來源:臺灣證券交易所 OpenAPI(上市公司每月營業收入、綜合損益表)。累計財報為當年度至該季的累計數;歷史月營收由本程式每日蒐集後逐月累積。</div>';
+  h+='</div>';
+  h+='<div class="card brk"><h2>4. 估值情境</h2>';
+  if(A.pe){h+='<table><tr><th>本益比(近四季)</th><td>'+fmt(A.pe.cur,1)+' 倍</td></tr><tr><th>近 12 月分布</th><td>最低 '+fmt(A.pe.min,1)+'|25% '+fmt(A.pe.p25,1)+'|中位 '+fmt(A.pe.med,1)+'|75% '+fmt(A.pe.p75,1)+'|最高 '+fmt(A.pe.max,1)+'</td></tr><tr><th>反推近四季 EPS</th><td>'+fmt(A.eps)+' 元</td></tr></table>';
+    h+='<table style="margin-top:8px"><tr><th>情境(盈餘不變,本益比回到歷史位置)</th><th>本益比</th><th>推演股價</th><th>相對現價</th></tr>'+[["保守:25% 分位",A.pe.p25],["基準:中位數",A.pe.med],["樂觀:75% 分位",A.pe.p75]].map(x=>'<tr><td>'+x[0]+'</td><td>'+fmt(x[1],1)+'</td><td>'+fmt(A.eps*x[1],0)+'</td><td>'+pct(A.eps*x[1]/A.px-1)+'</td></tr>').join('')+'</table>';
+    const ms=[.9,1,1.1,1.2],ps=[["最低",A.pe.min],["25%",A.pe.p25],["中位",A.pe.med],["75%",A.pe.p75]];
+    h+='<h2 style="margin-top:12px">EPS × 本益比敏感度(推演股價)</h2><table><tr><th>EPS(相對近四季)</th>'+ps.map(p=>'<th>'+p[0]+' '+fmt(p[1],1)+'倍</th>').join('')+'</tr>'+ms.map(m=>'<tr><td>'+fmt(A.eps*m)+' 元('+(m===1?"不變":(m>1?"+":"")+Math.round((m-1)*100)+"%")+')</td>'+ps.map(p=>'<td>'+fmt(A.eps*m*p[1],0)+'</td>').join('')+'</tr>').join('')+'</table>';
+    h+='<div class="muted">以現價 '+fmt(A.px)+' 計,若盈餘不變,現價隱含本益比 '+fmt(A.pe.cur,1)+' 倍。情境未預測未來盈餘,只呈現「盈餘變動 × 評價變動」的組合;盈餘預測與券商目標價需由個股深入報告提供。</div>'}
+  h+='<ul>'+A.valNotes.map(t=>'<li>'+t+'</li>').join('')+'</ul></div>';
+  h+='<div class="card"><h2>5. 新聞與研究摘要</h2><div class="muted">新聞、產業走向與券商目標價需要閱讀與判斷,本程式不自動產生;需要時請向 Claude 要求該檔的個股深入報告(含 MoneyDJ、鉅亨網、經濟日報等來源整理)。</div></div>';
+  h+='<div class="card"><h2>6. 風險與重新檢視條件</h2><ul>'+risks(A).map(t=>'<li>'+t+'</li>').join('')+'</ul></div>';
+  h+='<div class="card"><h2>資料來源與限制</h2><table><tr><th>資料項目</th><th>來源</th></tr><tr><td>股價、成交量</td><td>臺灣證券交易所 STOCK_DAY</td></tr><tr><td>本益比、股價淨值比、殖利率</td><td>臺灣證券交易所 BWIBBU</td></tr><tr><td>月營收、累計財報</td><td>臺灣證券交易所 OpenAPI(源自公司於公開資訊觀測站之申報)</td></tr></table><div class="muted">技術指標由收盤與高低價計算(RSI 14、MACD 12/26/9、ATR 14)。EPS 為由本益比反推之近似值,以公司公告為準。目前僅支援上市股票。</div></div>';
+  h+='<div class="card warn">'+DISCLAIMER+'</div>';
+  h+='<div class="noprint" style="text-align:center;margin:18px 0"><button type="button" onclick="window.print()">下載 PDF 報告</button><div class="muted" style="margin-top:6px">按下後在列印視窗選「另存為 PDF」(手機:分享 → 儲存為 PDF)。</div></div>';
+  $("#out").innerHTML=h;
+}
+function revChart(hist){
+  const k=Object.keys(hist).sort(),v=k.map(x=>hist[x]),W=720,H=170,P=34,mx=Math.max(...v)*1.1;const bw=(W-P-6)/k.length;
+  let s='<svg viewBox="0 0 '+W+' '+H+'">';
+  k.forEach((x,i)=>{const hgt=(v[i]/mx)*(H-34);s+='<rect x="'+(P+i*bw+bw*.15).toFixed(1)+'" y="'+(H-20-hgt).toFixed(1)+'" width="'+(bw*.7).toFixed(1)+'" height="'+hgt.toFixed(1)+'" fill="#2f6fed"/><text x="'+(P+i*bw+bw/2).toFixed(1)+'" y="'+(H-6)+'" font-size="10" text-anchor="middle" fill="#616e7c">'+x.slice(-2)+'</text>'});
+  return s+'</svg><div class="muted">月營收走勢(億元,民國 '+k[0].slice(0,3)+'/'+k[0].slice(-2)+' 起)</div>';
+}
+$("#f").addEventListener("submit",async e=>{
+  e.preventDefault();const code=$("#code").value.trim().toUpperCase();
+  if(!/^[0-9A-Z]{4,6}$/.test(code)){alert("請輸入 4–6 碼股票代號");return}
+  $("#out").innerHTML='<div class="card muted">讀取 '+code+' 的公開資料中…(約 10–20 秒)</div>';
+  try{
+    const [S,F]=await Promise.all([loadSeries(code),loadFund(code)]);
+    if(S.rows.length<60){$("#out").innerHTML='<div class="card">查無「'+code+'」足夠的上市交易資料(至少需約 3 個月)。若是上櫃股票或新上市股票,目前尚不支援。</div><div class="card warn">'+DISCLAIMER+'</div>';return}
+    render(code,S,analyze(S,F));
+  }catch(err){$("#out").innerHTML='<div class="card">讀取失敗:'+err.message+'。可能是證交所暫時限流,請稍等一分鐘再試。</div>'}
+  finally{$("#prog").hidden=true}
+});
+window.__analyze=analyze;
+if(location.hash.length>1){$("#code").value=location.hash.slice(1);$("#f").requestSubmit()}
+</script>
+</body>
+</html>

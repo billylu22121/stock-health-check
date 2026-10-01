@@ -1,0 +1,40 @@
+name: 更新資料並發布網頁
+on:
+  schedule:
+    - cron: "30 11 * * 1-5"   # 每個交易日台灣時間 19:30
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: 下載基本面資料(失敗時保留舊檔)
+        run: python scripts/build_fundamentals.py || echo "::warning::基本面資料更新失敗,沿用上一版"
+      - name: 提交資料檔
+        run: |
+          git config user.name "github-actions"; git config user.email "actions@users.noreply.github.com"
+          git add data/fundamentals.json || true
+          git diff --cached --quiet || (git commit -m "更新基本面資料" && git push)
+      - uses: actions/configure-pages@v5
+      - name: 整理發布內容
+        run: mkdir _site && cp index.html manifest.webmanifest _site/ && cp -r data _site/data
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
+    steps:
+      - id: d
+        uses: actions/deploy-pages@v4
