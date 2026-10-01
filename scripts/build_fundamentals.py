@@ -68,7 +68,11 @@ def main():
             code = r.get("公司代號") or ""
             rev = f(r.get("營業收入"))
             if code and rev:
-                margins[code] = {"gm": (f(r.get("營業毛利")) or 0) / rev, "om": (f(r.get("營業利益")) or 0) / rev, "nm": (f(r.get("本期淨利")) or 0) / rev}
+                gp, op, ni = (f(r.get(k)) for k in ("營業毛利", "營業利益", "本期淨利"))
+                if gp is None and f(r.get("營業成本")) is not None:
+                    gp = rev - f(r.get("營業成本"))
+                if gp is not None and op is not None and ni is not None:
+                    margins[code] = {"gm": gp / rev, "om": op / rev, "nm": ni / rev}
     except Exception as e:  # 毛利率為加分資料,失敗不中斷
         print("警告:無法取得綜合損益表(一般業):", e, file=sys.stderr)
     for code, e in eps.items():
